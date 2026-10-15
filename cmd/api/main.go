@@ -13,6 +13,8 @@ import (
 	"crud-api/internal/config"
 	"crud-api/internal/database"
 	"crud-api/internal/handler"
+	"crud-api/internal/middleware"
+	"crud-api/internal/model"
 	"crud-api/internal/repository"
 	"crud-api/internal/service"
 
@@ -30,9 +32,19 @@ func main() {
 	}
 
 	// 3. Khởi tạo tầng Repository, Service, Handler (Dependency Injection)
+	// Quản lý Sản phẩm
 	productRepo := repository.NewProductRepository(db)
 	productService := service.NewProductService(productRepo)
 	productHandler := handler.NewProductHandler(productService)
+
+	// Quản lý Xác thực & Người dùng
+	userRepo := repository.NewUserRepository(db)
+	authService := service.NewAuthService(userRepo, cfg)
+	authHandler := handler.NewAuthHandler(authService)
+
+	// Middlewares
+	authMiddleware := middleware.AuthMiddleware(authService)
+	adminMiddleware := middleware.RequireRole(model.RoleAdmin)
 
 	// 4. Khởi tạo Gin Router
 	r := gin.Default()
@@ -58,7 +70,8 @@ func main() {
 	// API V1 routes
 	apiV1 := r.Group("/api/v1")
 	{
-		productHandler.RegisterRoutes(apiV1)
+		authHandler.RegisterRoutes(apiV1, authMiddleware)
+		productHandler.RegisterRoutes(apiV1, authMiddleware, adminMiddleware)
 	}
 
 	// 5. Khởi động HTTP Server với cơ chế Graceful Shutdown

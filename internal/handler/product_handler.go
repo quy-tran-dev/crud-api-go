@@ -19,14 +19,17 @@ func NewProductHandler(s service.ProductService) *ProductHandler {
 	return &ProductHandler{service: s}
 }
 
-func (h *ProductHandler) RegisterRoutes(rg *gin.RouterGroup) {
+func (h *ProductHandler) RegisterRoutes(rg *gin.RouterGroup, authMiddleware, adminMiddleware gin.HandlerFunc) {
 	products := rg.Group("/products")
 	{
-		products.POST("", h.CreateProduct)
+		// Xem danh sách và chi tiết sản phẩm (Công khai)
 		products.GET("", h.GetProducts)
 		products.GET("/:id", h.GetProductByID)
-		products.PUT("/:id", h.UpdateProduct)
-		products.DELETE("/:id", h.DeleteProduct)
+
+		// Thao tác thay đổi dữ liệu yêu cầu Đăng nhập và có quyền Admin
+		products.POST("", authMiddleware, adminMiddleware, h.CreateProduct)
+		products.PUT("/:id", authMiddleware, adminMiddleware, h.UpdateProduct)
+		products.DELETE("/:id", authMiddleware, adminMiddleware, h.DeleteProduct)
 	}
 }
 

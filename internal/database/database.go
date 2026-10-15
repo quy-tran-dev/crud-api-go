@@ -52,8 +52,8 @@ func ConnectDB(cfg *config.Config) (*gorm.DB, error) {
 	log.Println("Kết nối PostgreSQL thành công!")
 
 	// Tự động migrate schema
-	if err := db.AutoMigrate(&model.Product{}); err != nil {
-		return nil, fmt.Errorf("lỗi khi AutoMigrate bảng products: %w", err)
+	if err := db.AutoMigrate(&model.Product{}, &model.User{}); err != nil {
+		return nil, fmt.Errorf("lỗi khi AutoMigrate bảng products và users: %w", err)
 	}
 	log.Println("Database AutoMigrate hoàn tất!")
 
