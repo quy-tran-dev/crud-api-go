@@ -13,10 +13,12 @@ import (
 	"crud-api/internal/config"
 	"crud-api/internal/database"
 	"crud-api/internal/handler"
+	worldHandler "crud-api/internal/handler/world"
 	"crud-api/internal/middleware"
 	"crud-api/internal/model"
 	"crud-api/internal/repository"
 	"crud-api/internal/service"
+	worldService "crud-api/internal/service/world"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,6 +43,33 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	authService := service.NewAuthService(userRepo, cfg)
 	authHandler := handler.NewAuthHandler(authService)
+
+	// Quản lý Kịch bản & World-Building (Script Management)
+	storyRepo := repository.NewStoryRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
+	locationRepo := repository.NewLocationRepository(db)
+	factionRepo := repository.NewFactionRepository(db)
+	characterRepo := repository.NewCharacterRepository(db)
+	plotRepo := repository.NewPlotRepository(db)
+	itemRepo := repository.NewItemRepository(db)
+
+	storyService := worldService.NewStoryService(storyRepo, categoryRepo, locationRepo, factionRepo, characterRepo, plotRepo, itemRepo)
+	categoryService := worldService.NewCategoryService(categoryRepo, storyRepo)
+	locationService := worldService.NewLocationService(locationRepo, storyRepo)
+	factionService := worldService.NewFactionService(factionRepo, storyRepo)
+	characterService := worldService.NewCharacterService(characterRepo, categoryRepo, storyRepo)
+	plotService := worldService.NewPlotService(plotRepo, storyRepo)
+	itemService := worldService.NewItemService(itemRepo, storyRepo)
+
+	worldHandlers := &worldHandler.WorldModuleHandlers{
+		StoryHandler:     worldHandler.NewStoryHandler(storyService),
+		CategoryHandler:  worldHandler.NewCategoryHandler(categoryService),
+		LocationHandler:  worldHandler.NewLocationHandler(locationService),
+		FactionHandler:   worldHandler.NewFactionHandler(factionService),
+		CharacterHandler: worldHandler.NewCharacterHandler(characterService),
+		PlotHandler:      worldHandler.NewPlotHandler(plotService),
+		ItemHandler:      worldHandler.NewItemHandler(itemService),
+	}
 
 	// Middlewares
 	authMiddleware := middleware.AuthMiddleware(authService)
@@ -72,6 +101,7 @@ func main() {
 	{
 		authHandler.RegisterRoutes(apiV1, authMiddleware)
 		productHandler.RegisterRoutes(apiV1, authMiddleware, adminMiddleware)
+		worldHandler.RegisterWorldRoutes(apiV1, authMiddleware, worldHandlers)
 	}
 
 	// 5. Khởi động HTTP Server với cơ chế Graceful Shutdown
