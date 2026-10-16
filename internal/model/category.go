@@ -9,6 +9,7 @@ const (
 	CategoryCodeLocationType  = "location_type"  // Phân loại địa danh (Đại lục, Bí cảnh, Sơn môn...)
 	CategoryCodeCharacterRole = "character_role" // Vai trò nhân vật (Chính, Phản diện, Phụ...)
 	CategoryCodeItemType      = "item_type"      // Phân loại vật phẩm (Vũ khí, Pháp bảo, Đan dược...)
+	CategoryCodeItemGrade     = "item_grade"     // Hệ thống phẩm giai / cấp bậc phẩm chất (Hoàng/Huyền/Địa/Thiên, Nhất phẩm, Thần khí...)
 	CategoryCodeElement       = "element"        // Hệ thống nguyên tố / linh căn / trường phái
 )
 
