@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '../store/useAuthStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
@@ -9,10 +10,10 @@ export const api = axios.create({
   },
 });
 
-// Request Interceptor: Tự động đính kèm JWT Bearer Token
+// Request Interceptor: Tự động đính kèm JWT Bearer Token từ Zustand hoặc localStorage
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = useAuthStore.getState().token || localStorage.getItem('token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -21,14 +22,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Bắt lỗi 401 tự động dọn session và redirect
+// Response Interceptor: Bắt lỗi 401 tự động logout qua Zustand
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Token hết hạn hoặc không hợp lệ
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      useAuthStore.getState().logout();
       if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
         window.location.href = '/login';
       }
