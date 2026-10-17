@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { WorkspacePage } from './pages/WorkspacePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 export const App: React.FC = () => {
@@ -16,8 +17,8 @@ export const App: React.FC = () => {
         {/* Protected Routes (Yêu cầu đăng nhập) */}
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<DashboardPage />} />
-          {/* Workspace chi tiết của kịch bản sẽ nối tiếp ở Commit 3 */}
-          <Route path="/stories/:id" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/stories/:id" element={<WorkspacePage />} />
         </Route>
 
         {/* Fallback */}

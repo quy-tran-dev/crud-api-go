@@ -54,12 +54,12 @@ export const DashboardPage: React.FC = () => {
     fetchStories();
   }, [statusFilter]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = (e: React.SubmitEvent) => {
     e.preventDefault();
     fetchStories();
   };
 
-  const handleCreateStory = async (e: React.FormEvent) => {
+  const handleCreateStory = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
