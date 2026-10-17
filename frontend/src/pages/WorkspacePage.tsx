@@ -20,6 +20,8 @@ import { FactionTab } from '../components/workspace/FactionTab';
 import { CharacterTab } from '../components/workspace/CharacterTab';
 import { PlotTab } from '../components/workspace/PlotTab';
 import { ItemTab } from '../components/workspace/ItemTab';
+import { SmartRecheckModal } from '../components/workspace/SmartRecheckModal';
+import { PublishModal } from '../components/workspace/PublishModal';
 import {
   ArrowLeft,
   Sparkles,
@@ -28,6 +30,7 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const WorkspacePage: React.FC = () => {
@@ -50,6 +53,8 @@ export const WorkspacePage: React.FC = () => {
 
   // Detected new items for Smart Recheck
   const [detectedRecheckItems, setDetectedRecheckItems] = useState<any[]>([]);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [isRecheckModalOpen, setIsRecheckModalOpen] = useState(false);
 
   const fetchAllData = useCallback(async () => {
     if (!storyID) return;
@@ -177,11 +182,24 @@ export const WorkspacePage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           {detectedRecheckItems.length > 0 && (
-            <div className="hidden md:flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs animate-pulse">
+            <button
+              onClick={() => setIsRecheckModalOpen(true)}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold hover:bg-amber-500/30 transition animate-pulse"
+              title="Xem các từ khóa mới được phát hiện"
+            >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Phát hiện {detectedRecheckItems.length} từ khóa mới</span>
-            </div>
+              <span>Phát hiện {detectedRecheckItems.length} từ mới</span>
+            </button>
           )}
+
+          <button
+            onClick={() => setIsPublishModalOpen(true)}
+            className="btn-primary text-xs flex items-center space-x-1.5 py-1.5 px-3"
+            title="Kiểm tra tính toàn vẹn kịch bản và xuất bản"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Kiểm Tra Xuất Bản</span>
+          </button>
 
           <button
             onClick={fetchAllData}
@@ -212,7 +230,10 @@ export const WorkspacePage: React.FC = () => {
               locations={locations}
               categories={categories}
               onRefresh={fetchAllData}
-              onDetectedNewItems={(items) => setDetectedRecheckItems(items)}
+              onDetectedNewItems={(items) => {
+                setDetectedRecheckItems(items);
+                setIsRecheckModalOpen(true);
+              }}
             />
           )}
 
@@ -266,6 +287,33 @@ export const WorkspacePage: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* Smart Recheck Modal */}
+      <SmartRecheckModal
+        isOpen={isRecheckModalOpen}
+        onClose={() => setIsRecheckModalOpen(false)}
+        detectedItems={detectedRecheckItems}
+        storyID={storyID}
+        categories={categories}
+        onSuccess={() => {
+          fetchAllData();
+          setDetectedRecheckItems([]);
+        }}
+      />
+
+      {/* Pre-Publish Integrity Verification Modal */}
+      <PublishModal
+        isOpen={isPublishModalOpen}
+        onClose={() => setIsPublishModalOpen(false)}
+        storyID={storyID}
+        storyTitle={story.title}
+        currentStatus={story.status}
+        onPublishSuccess={(updatedStory) => {
+          setStory(updatedStory);
+          fetchAllData();
+        }}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+      />
     </div>
   );
 };
