@@ -5,10 +5,16 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { ToastContainer } from './components/common/ToastContainer';
+import { ConfirmModal } from './components/common/ConfirmModal';
 
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
+      {/* Toast Notification Container & Confirm Modal */}
+      <ToastContainer />
+      <ConfirmModal />
+
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
