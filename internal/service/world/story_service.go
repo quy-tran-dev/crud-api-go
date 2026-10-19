@@ -213,58 +213,168 @@ func (s *storyService) PublishStory(id, userID uint) (*PublishResult, error) {
 
 // seedDefaultCategories tự động khởi tạo danh mục mẫu theo thể loại truyện
 func (s *storyService) seedDefaultCategories(storyID uint, genre string) {
-	// Danh mục Phẩm giai Vật phẩm (Chung)
-	gradeCat := &model.SystemCategory{
-		StoryID:     storyID,
-		Code:        model.CategoryCodeItemGrade,
-		Name:        "Phẩm Cấp / Đánh Giá Vật Phẩm",
-		Description: "Thang đo phân cấp phẩm chất vũ khí, pháp bảo, đan dược",
-	}
-	_ = s.categoryRepo.CreateCategory(gradeCat)
+	gLower := strings.ToLower(strings.TrimSpace(genre))
 
-	grades := []string{"Hoàng Giai", "Huyền Giai", "Địa Giai", "Thiên Giai", "Thần Giai"}
-	for i, g := range grades {
-		_ = s.categoryRepo.CreateCategoryItem(&model.SystemCategoryItem{
-			CategoryID: gradeCat.ID,
-			Name:       g,
-			OrderIndex: i + 1,
-		})
+	helperCreate := func(code, name, desc string, items []string) {
+		cat := &model.SystemCategory{
+			StoryID:     storyID,
+			Code:        code,
+			Name:        name,
+			Description: desc,
+		}
+		if err := s.categoryRepo.CreateCategory(cat); err == nil && cat.ID > 0 {
+			for i, itName := range items {
+				_ = s.categoryRepo.CreateCategoryItem(&model.SystemCategoryItem{
+					CategoryID:  cat.ID,
+					Name:        itName,
+					OrderIndex:  i + 1,
+					Description: fmt.Sprintf("Mục định nghĩa chuẩn của %s", name),
+				})
+			}
+		}
 	}
 
-	// Nếu thể loại là Tu Tiên hoặc Huyền Huyễn
-	if strings.Contains(strings.ToLower(genre), "tu tiên") || strings.Contains(strings.ToLower(genre), "tiên hiệp") {
+	if strings.Contains(gLower, "tu tiên") || strings.Contains(gLower, "tiên hiệp") {
 		// 1. Cảnh giới
-		levelCat := &model.SystemCategory{
-			StoryID:     storyID,
-			Code:        model.CategoryCodePowerLevel,
-			Name:        "Hệ Thống Cảnh Giới Tu Vi",
-			Description: "Các cấp bậc tu luyện từ thấp đến cao",
-		}
-		_ = s.categoryRepo.CreateCategory(levelCat)
-		levels := []string{"Luyện Khí", "Trúc Cơ", "Kim Đan", "Nguyên Anh", "Hóa Thần", "Luyện Hư"}
-		for i, l := range levels {
-			_ = s.categoryRepo.CreateCategoryItem(&model.SystemCategoryItem{
-				CategoryID: levelCat.ID,
-				Name:       l,
-				OrderIndex: i + 1,
-			})
-		}
-
-		// 2. Loại thế lực
-		facCat := &model.SystemCategory{
-			StoryID:     storyID,
-			Code:        model.CategoryCodeFactionType,
-			Name:        "Phân Loại Thế Lực",
-			Description: "Tông phái, gia tộc, giáo phái",
-		}
-		_ = s.categoryRepo.CreateCategory(facCat)
-		facTypes := []string{"Tông Môn Chính Đạo", "Ma Đạo Giáo Phái", "Tu Tiên Thế Gia", "Tán Tu Liên Minh"}
-		for i, f := range facTypes {
-			_ = s.categoryRepo.CreateCategoryItem(&model.SystemCategoryItem{
-				CategoryID: facCat.ID,
-				Name:       f,
-				OrderIndex: i + 1,
-			})
-		}
+		helperCreate(
+			model.CategoryCodePowerLevel,
+			"Hệ Thống Cảnh Giới Tu Vi",
+			"Các cấp bậc tu luyện từ thấp đến cao trong thế giới Tiên Hiệp",
+			[]string{"Luyện Khí Kỳ", "Trúc Cơ Kỳ", "Kim Đan Kỳ", "Nguyên Anh Kỳ", "Hóa Thần Kỳ", "Luyện Hư Kỳ", "Hợp Thể Kỳ", "Đại Thừa Kỳ", "Độ Kiếp Kỳ"},
+		)
+		// 2. Phân loại thế lực
+		helperCreate(
+			model.CategoryCodeFactionType,
+			"Phân Loại Thế Lực & Môn Phái",
+			"Tông môn, gia tộc, giáo phái, liên minh tu sĩ",
+			[]string{"Tông Môn Chính Đạo", "Ma Đạo Giáo Phái", "Tu Tiên Thế Gia", "Tán Tu Liên Minh", "Thương Hội Tu Giới"},
+		)
+		// 3. Phẩm cấp vật phẩm
+		helperCreate(
+			model.CategoryCodeItemGrade,
+			"Phẩm Cấp / Giai Vị Pháp Bảo",
+			"Hệ thống phân cấp bảo vật tu tiên",
+			[]string{"Phàm Giai", "Hoàng Giai", "Huyền Giai", "Địa Giai", "Thiên Giai", "Tiên Giai", "Thần Khí Thượng Cổ"},
+		)
+		// 4. Loại vật phẩm
+		helperCreate(
+			model.CategoryCodeItemType,
+			"Loại Trang Bị & Vật Phẩm",
+			"Phân loại các vật phẩm trong kịch bản",
+			[]string{"Vũ khí", "Pháp bảo", "Đan dược", "Linh thảo", "Phù lục", "Trận bàn", "Công pháp"},
+		)
+	} else if strings.Contains(gLower, "cyber") || strings.Contains(gLower, "khoa học") || strings.Contains(gLower, "viễn tưởng") {
+		// 1. Cyberware / Thân thể nâng cấp
+		helperCreate(
+			model.CategoryCodePowerLevel,
+			"Cấp Bậc Nâng Cấp (Cyberware Tier)",
+			"Mức độ tích hợp công nghệ và độ chịu tải thần kinh của cơ thể",
+			[]string{"Tier 1 (Chợ Đen)", "Tier 2 (Dân Sự Chuẩn)", "Tier 3 (Quân Đội Tăng Cường)", "Tier 4 (Nguyên Mẫu Tập Đoàn)", "Tier 5 (Huyền Thoại Cyber)"},
+		)
+		// 2. Phân loại thế lực
+		helperCreate(
+			model.CategoryCodeFactionType,
+			"Phân Loại Thế Lực & Tập Đoàn",
+			"Tập đoàn khổng lồ, băng đảng đường phố, tổ chức ngầm",
+			[]string{"Đại Tập Đoàn (Megacorp)", "Băng Đảng Đường Phố", "Tổ Chức Hacker Tự Do", "Lực Lượng An Ninh (Police)", "Thợ Săn Tiền Thưởng (Mercs)"},
+		)
+		// 3. Phẩm cấp trang bị
+		helperCreate(
+			model.CategoryCodeItemGrade,
+			"Phẩm Cấp Công Nghệ",
+			"Chất lượng và độ hiếm của vũ khí công nghệ",
+			[]string{"Phổ Thông (Common)", "Cải Tiến (Custom)", "Quân Sự (Military-Grade)", "Công Nghệ Cao (High-Tech)", "Nguyên Mẫu Độc Bản (Prototype)"},
+		)
+		// 4. Loại trang bị
+		helperCreate(
+			model.CategoryCodeItemType,
+			"Loại Trang Bị & Vật Phẩm",
+			"Phân loại vũ khí và đồ chơi công nghệ",
+			[]string{"Vũ khí thông minh", "Cấy ghép thần kinh", "Chip dữ liệu", "Phần mềm hack", "Bộ giáp tàng hình", "Thuốc kích thích"},
+		)
+	} else if strings.Contains(gLower, "trinh thám") || strings.Contains(gLower, "hình sự") || strings.Contains(gLower, "bắt án") {
+		// 1. Cấp bậc điều tra
+		helperCreate(
+			model.CategoryCodePowerLevel,
+			"Cấp Bậc Điều Tra & Thẩm Quyền",
+			"Thẩm quyền và cấp bậc trong hệ thống cảnh sát và thám tử",
+			[]string{"Thực Tập Sinh", "Điều Tra Viên", "Thanh Tra Trưởng", "Cục Trưởng Điều Tra", "Thám Tử Cố Vấn Đặc Biệt"},
+		)
+		// 2. Phân loại thế lực
+		helperCreate(
+			model.CategoryCodeFactionType,
+			"Phân Loại Tổ Chức & Băng Nhóm",
+			"Cơ quan hành pháp, băng nhóm tội phạm, văn phòng thám tử",
+			[]string{"Sở Cảnh Sát Thành Phố", "Văn Phòng Thám Tử Tư", "Tổ Chức Tội Phạm Ngầm", "Viện Pháp Y Quốc Gia", "Viện Kiểm Sát"},
+		)
+		// 3. Phẩm cấp manh mối
+		helperCreate(
+			model.CategoryCodeItemGrade,
+			"Mức Độ Quan Trọng Của Manh Mối",
+			"Giá trị chứng cứ đối với vụ án",
+			[]string{"Manh Mối Sơ Cấp", "Chứng Cứ Đáng Ngờ", "Manh Mối Quan Trọng", "Bằng Chứng Then Chốt", "Vật Chứng Tuyệt Mật"},
+		)
+		// 4. Loại vật phẩm
+		helperCreate(
+			model.CategoryCodeItemType,
+			"Loại Trang Bị & Vật Phẩm",
+			"Manh mối, thiết bị điều tra, hồ sơ vụ án",
+			[]string{"Manh mối hiện trường", "Báo cáo pháp y", "Thiết bị ghi âm/nghe lén", "Vũ khí tự vệ", "Hồ sơ lưu trữ mật"},
+		)
+	} else if strings.Contains(gLower, "huyền huyễn") || strings.Contains(gLower, "fantasy") || strings.Contains(gLower, "ma pháp") {
+		// 1. Cấp bậc ma pháp
+		helperCreate(
+			model.CategoryCodePowerLevel,
+			"Hệ Thống Ma Pháp / Chức Nghiệp",
+			"Cấp bậc sức mạnh của pháp sư và hiệp sĩ",
+			[]string{"Học Đồ", "Sơ Cấp (Sắt)", "Trung Cấp (Đồng)", "Cao Cấp (Bạc)", "Đại Pháp Sư (Vàng)", "Thánh Vực", "Thần Thoại"},
+		)
+		// 2. Phân loại thế lực
+		helperCreate(
+			model.CategoryCodeFactionType,
+			"Chủng Tộc & Thế Lực",
+			"Vương quốc, công hội, giáo đình, gia tộc cổ",
+			[]string{"Đế Quốc Nhân Tộc", "Vương Quốc Tinh Linh", "Bộ Lạc Thú Tộc", "Ma Pháp Công Hội", "Giáo Đình Thánh Quang", "Quân Đoàn Hắc Ám"},
+		)
+		// 3. Phẩm cấp trang bị
+		helperCreate(
+			model.CategoryCodeItemGrade,
+			"Phẩm Cấp Bảo Vật Ma Pháp",
+			"Hệ thống phân cấp bảo vật fantasy",
+			[]string{"Bạch Thiết", "Thanh Đồng", "Bạch Ngân", "Hoàng Kim", "Sử Thi (Epic)", "Truyền Thuyết (Legendary)", "Thần Khí (Artifact)"},
+		)
+		// 4. Loại vật phẩm
+		helperCreate(
+			model.CategoryCodeItemType,
+			"Loại Trang Bị & Vật Phẩm",
+			"Phân loại trang bị fantasy",
+			[]string{"Trượng ma pháp", "Vũ khí cận chiến", "Áo choàng phép", "Ma dược", "Cuộn giấy phép thuật", "Ma tinh"},
+		)
+	} else {
+		// Thể loại Tùy chỉnh (Custom) - Cung cấp bộ khung nền tảng linh hoạt
+		helperCreate(
+			model.CategoryCodePowerLevel,
+			"Hệ Thống Cấp Bậc / Năng Lực",
+			"Thang đo cấp bậc sức mạnh tùy chỉnh",
+			[]string{"Cấp F (Nhập Môn)", "Cấp E", "Cấp D", "Cấp C", "Cấp B", "Cấp A", "Cấp S (Đỉnh Cao)", "Cấp Siêu Việt"},
+		)
+		helperCreate(
+			model.CategoryCodeFactionType,
+			"Phân Loại Thế Lực & Tổ Chức",
+			"Các tổ chức, liên minh trong tác phẩm",
+			[]string{"Tổ Chức Chính Quyền", "Liên Minh Độc Lập", "Phe Nổi Dậy", "Tổ Chức Bí Ẩn"},
+		)
+		helperCreate(
+			model.CategoryCodeItemGrade,
+			"Phẩm Cấp Đánh Giá Trang Bị",
+			"Cấp độ phẩm chất vật phẩm",
+			[]string{"Cấp 1 (Cơ Bản)", "Cấp 2 (Nâng Cao)", "Cấp 3 (Hiếm)", "Cấp 4 (Cực Phẩm)", "Cấp 5 (Thần Thoại)"},
+		)
+		helperCreate(
+			model.CategoryCodeItemType,
+			"Loại Trang Bị & Vật Phẩm",
+			"Phân loại các vật phẩm trong kịch bản",
+			[]string{"Vũ khí", "Giáp bảo hộ", "Dụng cụ hỗ trợ", "Đạo cụ đặc biệt", "Manh mối"},
+		)
 	}
 }

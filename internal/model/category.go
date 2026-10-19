@@ -67,3 +67,15 @@ type CreateCategoryItemRequest struct {
 	Description string         `json:"description"`
 	Metadata    map[string]any `json:"metadata"`
 }
+
+type UpdateCategoryRequest struct {
+	Name        *string `json:"name" binding:"omitempty,min=2,max=255"`
+	Description *string `json:"description"`
+}
+
+type UpdateCategoryItemRequest struct {
+	Name        *string        `json:"name" binding:"omitempty,min=1,max=255"`
+	OrderIndex  *int           `json:"order_index"`
+	Description *string        `json:"description"`
+	Metadata    map[string]any `json:"metadata"`
+}

@@ -10,6 +10,7 @@ type WorldModuleHandlers struct {
 	CharacterHandler *CharacterHandler
 	PlotHandler      *PlotHandler
 	ItemHandler      *ItemHandler
+	FrameworkHandler *FrameworkHandler
 }
 
 func RegisterWorldRoutes(rg *gin.RouterGroup, authMiddleware gin.HandlerFunc, h *WorldModuleHandlers) {
@@ -23,11 +24,19 @@ func RegisterWorldRoutes(rg *gin.RouterGroup, authMiddleware gin.HandlerFunc, h 
 		stories.DELETE("/:id", h.StoryHandler.DeleteStory)
 		stories.POST("/:id/publish", h.StoryHandler.PublishStory)
 
-		// 2. Categories (Từ điển hằng số & Smart Recheck)
+		// 2. Categories (Từ điển hằng số & Smart Recheck & CRUD đầy đủ)
 		stories.POST("/:id/categories", h.CategoryHandler.CreateCategory)
 		stories.GET("/:id/categories", h.CategoryHandler.GetCategories)
+		stories.PUT("/:id/categories/:category_id", h.CategoryHandler.UpdateCategory)
+		stories.DELETE("/:id/categories/:category_id", h.CategoryHandler.DeleteCategory)
 		stories.POST("/:id/categories/:category_id/items", h.CategoryHandler.CreateCategoryItem)
+		stories.PUT("/:id/categories/:category_id/items/:item_id", h.CategoryHandler.UpdateCategoryItem)
+		stories.DELETE("/:id/categories/:category_id/items/:item_id", h.CategoryHandler.DeleteCategoryItem)
 		stories.POST("/:id/recheck", h.CategoryHandler.RecheckValue)
+
+		// Lưu và Áp dụng Framework cho tác phẩm
+		stories.POST("/:id/frameworks", h.FrameworkHandler.SaveFrameworkFromStory)
+		stories.POST("/:id/apply-framework/:framework_id", h.FrameworkHandler.ApplyFrameworkToStory)
 
 		// 3. Locations (Bản đồ / Địa danh phân cấp cây)
 		stories.POST("/:id/locations", h.LocationHandler.CreateLocation)
@@ -63,5 +72,16 @@ func RegisterWorldRoutes(rg *gin.RouterGroup, authMiddleware gin.HandlerFunc, h 
 		stories.GET("/:id/items/:item_id", h.ItemHandler.GetItemByID)
 		stories.PUT("/:id/items/:item_id", h.ItemHandler.UpdateItem)
 		stories.DELETE("/:id/items/:item_id", h.ItemHandler.DeleteItem)
+	}
+
+	// 8. Framework Templates (Quản lý & Thư viện bộ khung cộng đồng)
+	frameworks := rg.Group("/frameworks", authMiddleware)
+	{
+		frameworks.POST("", h.FrameworkHandler.CreateFramework)
+		frameworks.GET("/my", h.FrameworkHandler.GetMyFrameworks)
+		frameworks.GET("/public", h.FrameworkHandler.GetPublicFrameworks)
+		frameworks.GET("/:id", h.FrameworkHandler.GetFrameworkByID)
+		frameworks.PUT("/:id", h.FrameworkHandler.UpdateFramework)
+		frameworks.DELETE("/:id", h.FrameworkHandler.DeleteFramework)
 	}
 }

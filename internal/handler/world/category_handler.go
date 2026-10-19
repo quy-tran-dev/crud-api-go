@@ -152,3 +152,141 @@ func (h *CategoryHandler) RecheckValue(c *gin.Context) {
 		"detected": detected,
 	})
 }
+
+// UpdateCategory: PUT /api/v1/stories/:id/categories/:category_id
+func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	storyID, err := parseID(c.Param("id"))
+	if err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "ID tác phẩm không hợp lệ", err)
+		return
+	}
+
+	categoryID, err := parseID(c.Param("category_id"))
+	if err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "ID danh mục không hợp lệ", err)
+		return
+	}
+
+	var req model.UpdateCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "Dữ liệu cập nhật danh mục không hợp lệ", err)
+		return
+	}
+
+	cat, err := h.categoryService.UpdateCategory(categoryID, storyID, userID, req)
+	if err != nil {
+		if errors.Is(err, world.ErrStoryNotFound) {
+			handler.ResponseError(c, http.StatusNotFound, err.Error(), nil)
+			return
+		}
+		handler.ResponseError(c, http.StatusInternalServerError, "Không thể cập nhật danh mục", err)
+		return
+	}
+
+	handler.ResponseSuccess(c, http.StatusOK, "Cập nhật danh mục thành công", cat)
+}
+
+// DeleteCategory: DELETE /api/v1/stories/:id/categories/:category_id
+func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	storyID, err := parseID(c.Param("id"))
+	if err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "ID tác phẩm không hợp lệ", err)
+		return
+	}
+
+	categoryID, err := parseID(c.Param("category_id"))
+	if err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "ID danh mục không hợp lệ", err)
+		return
+	}
+
+	if err := h.categoryService.DeleteCategory(categoryID, storyID, userID); err != nil {
+		if errors.Is(err, world.ErrStoryNotFound) {
+			handler.ResponseError(c, http.StatusNotFound, err.Error(), nil)
+			return
+		}
+		handler.ResponseError(c, http.StatusInternalServerError, "Không thể xóa danh mục", err)
+		return
+	}
+
+	handler.ResponseSuccess(c, http.StatusOK, "Xóa danh mục thành công", nil)
+}
+
+// UpdateCategoryItem: PUT /api/v1/stories/:id/categories/:category_id/items/:item_id
+func (h *CategoryHandler) UpdateCategoryItem(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	storyID, err := parseID(c.Param("id"))
+	if err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "ID tác phẩm không hợp lệ", err)
+		return
+	}
+
+	itemID, err := parseID(c.Param("item_id"))
+	if err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "ID mục từ điển không hợp lệ", err)
+		return
+	}
+
+	var req model.UpdateCategoryItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "Dữ liệu cập nhật mục từ điển không hợp lệ", err)
+		return
+	}
+
+	item, err := h.categoryService.UpdateCategoryItem(itemID, storyID, userID, req)
+	if err != nil {
+		if errors.Is(err, world.ErrStoryNotFound) {
+			handler.ResponseError(c, http.StatusNotFound, err.Error(), nil)
+			return
+		}
+		handler.ResponseError(c, http.StatusInternalServerError, "Không thể cập nhật mục từ điển", err)
+		return
+	}
+
+	handler.ResponseSuccess(c, http.StatusOK, "Cập nhật mục từ điển thành công", item)
+}
+
+// DeleteCategoryItem: DELETE /api/v1/stories/:id/categories/:category_id/items/:item_id
+func (h *CategoryHandler) DeleteCategoryItem(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	storyID, err := parseID(c.Param("id"))
+	if err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "ID tác phẩm không hợp lệ", err)
+		return
+	}
+
+	itemID, err := parseID(c.Param("item_id"))
+	if err != nil {
+		handler.ResponseError(c, http.StatusBadRequest, "ID mục từ điển không hợp lệ", err)
+		return
+	}
+
+	if err := h.categoryService.DeleteCategoryItem(itemID, storyID, userID); err != nil {
+		if errors.Is(err, world.ErrStoryNotFound) {
+			handler.ResponseError(c, http.StatusNotFound, err.Error(), nil)
+			return
+		}
+		handler.ResponseError(c, http.StatusInternalServerError, "Không thể xóa mục từ điển", err)
+		return
+	}
+
+	handler.ResponseSuccess(c, http.StatusOK, "Xóa mục từ điển thành công", nil)
+}

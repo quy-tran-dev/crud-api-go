@@ -63,10 +63,16 @@ func ConnectDB(cfg *config.Config) (*gorm.DB, error) {
 		&model.Character{},
 		&model.Plot{},
 		&model.Item{},
+		&model.FrameworkTemplate{},
 	); err != nil {
 		return nil, fmt.Errorf("lỗi khi AutoMigrate các bảng dữ liệu: %w", err)
 	}
 	log.Println("Database AutoMigrate hoàn tất!")
+
+	// Tự động seed tài khoản Admin nếu chưa tồn tại
+	if err := SeedAdmin(db); err != nil {
+		log.Printf("[Seeder] Cảnh báo lỗi khi seed Admin: %v", err)
+	}
 
 	return db, nil
 }

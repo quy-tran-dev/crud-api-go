@@ -52,6 +52,7 @@ func main() {
 	characterRepo := repository.NewCharacterRepository(db)
 	plotRepo := repository.NewPlotRepository(db)
 	itemRepo := repository.NewItemRepository(db)
+	frameworkRepo := repository.NewFrameworkRepository(db)
 
 	storyService := worldService.NewStoryService(storyRepo, categoryRepo, locationRepo, factionRepo, characterRepo, plotRepo, itemRepo)
 	categoryService := worldService.NewCategoryService(categoryRepo, storyRepo)
@@ -60,6 +61,7 @@ func main() {
 	characterService := worldService.NewCharacterService(characterRepo, categoryRepo, storyRepo)
 	plotService := worldService.NewPlotService(plotRepo, storyRepo)
 	itemService := worldService.NewItemService(itemRepo, storyRepo)
+	frameworkService := worldService.NewFrameworkService(frameworkRepo, storyRepo, categoryRepo)
 
 	worldHandlers := &worldHandler.WorldModuleHandlers{
 		StoryHandler:     worldHandler.NewStoryHandler(storyService),
@@ -69,14 +71,16 @@ func main() {
 		CharacterHandler: worldHandler.NewCharacterHandler(characterService),
 		PlotHandler:      worldHandler.NewPlotHandler(plotService),
 		ItemHandler:      worldHandler.NewItemHandler(itemService),
+		FrameworkHandler: worldHandler.NewFrameworkHandler(frameworkService),
 	}
 
 	// Middlewares
 	authMiddleware := middleware.AuthMiddleware(authService)
 	adminMiddleware := middleware.RequireRole(model.RoleAdmin)
 
-	// 4. Khởi tạo Gin Router
-	r := gin.Default()
+	// 4. Khởi tạo Gin Router sạch (loại bỏ cảnh báo GIN-debug WARNING)
+	r := gin.New()
+	r.Use(gin.Logger(), gin.Recovery())
 
 	// CORS Middleware đơn giản
 	r.Use(func(c *gin.Context) {
