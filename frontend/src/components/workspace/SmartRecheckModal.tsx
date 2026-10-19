@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { DetectedNewItem, SystemCategory } from '../../types';
-import { api } from '../../services/api';
+import { api, ENDPOINTS, getErrorMessage, toast } from '../../services';
 import { Sparkles, Plus, Check, X, BookText, Loader2, ArrowRight } from 'lucide-react';
 
 interface SmartRecheckModalProps {
@@ -37,21 +37,22 @@ export const SmartRecheckModal: React.FC<SmartRecheckModalProps> = ({
   const handleAddSingle = async (item: DetectedNewItem) => {
     const cat = categories.find((c) => c.code === item.category_code);
     if (!cat) {
-      alert(`Không tìm thấy danh mục hệ thống với mã "${item.category_code}"`);
+      toast.error(`Không tìm thấy danh mục hệ thống với mã "${item.category_code}"`);
       return;
     }
 
     try {
-      await api.post(`/stories/${storyID}/categories/${cat.id}/items`, {
+      await api.post(ENDPOINTS.CATEGORIES.ITEMS.BASE(storyID, cat.id), {
         name: item.new_value,
         order_index: (cat.items?.length || 0) + 1,
         description: 'Tự động tạo bởi tính năng Smart Recheck khi khởi tạo nhân vật',
       });
 
       setAddedItems((prev) => [...prev, `${item.category_code}:${item.new_value}`]);
+      toast.success(`Đã thêm "${item.new_value}" vào từ điển!`);
       onSuccess();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi thêm mục vào từ điển');
+      toast.error(getErrorMessage(err, 'Lỗi khi thêm mục vào từ điển'));
     }
   };
 
@@ -61,17 +62,18 @@ export const SmartRecheckModal: React.FC<SmartRecheckModalProps> = ({
       for (const item of itemsToProcess) {
         const cat = categories.find((c) => c.code === item.category_code);
         if (cat && !addedItems.includes(`${item.category_code}:${item.new_value}`)) {
-          await api.post(`/stories/${storyID}/categories/${cat.id}/items`, {
+          await api.post(ENDPOINTS.CATEGORIES.ITEMS.BASE(storyID, cat.id), {
             name: item.new_value,
             order_index: (cat.items?.length || 0) + 1,
             description: 'Tự động tạo bởi tính năng Smart Recheck',
           });
         }
       }
+      toast.success('Đã tự động thêm toàn bộ từ khóa mới vào từ điển!');
       onSuccess();
       onClose();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Có lỗi khi tự động thêm từ khóa');
+      toast.error(getErrorMessage(err, 'Có lỗi khi tự động thêm từ khóa'));
     } finally {
       setIsProcessing(false);
     }

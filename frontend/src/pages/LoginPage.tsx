@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, ENDPOINTS, handleFormSubmit } from '../services';
 import { useAuthStore } from '../store/useAuthStore';
 import { BookOpen, KeyRound, Mail, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -16,22 +16,20 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError(null);
-    setIsLoading(true);
 
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      const { user, token } = response.data.data;
-      setAuth(user, token);
-      navigate('/');
-    } catch (err: any) {
-      const message =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        'Đăng nhập thất bại. Vui lòng kiểm tra lại email hoặc mật khẩu.';
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
+    await handleFormSubmit({
+      setSubmitting: setIsLoading,
+      action: () => api.post(ENDPOINTS.AUTH.LOGIN, { email, password }),
+      onSuccess: (response) => {
+        const { user, token } = response.data.data;
+        setAuth(user, token);
+        navigate('/');
+      },
+      onError: (msg) => {
+        setError(msg);
+      },
+      fallbackErrorMessage: 'Đăng nhập thất bại. Vui lòng kiểm tra lại email hoặc mật khẩu.',
+    });
   };
 
   return (

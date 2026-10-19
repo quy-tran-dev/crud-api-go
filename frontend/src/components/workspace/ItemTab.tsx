@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Item, Character, Faction, Location } from '../../types';
-import { api } from '../../services/api';
+import { api, ENDPOINTS, handleFormSubmit, confirmAndDelete } from '../../services';
 import { Sword, Plus, Trash2, X, Search, Sparkles, User, Shield, MapPin, Tag } from 'lucide-react';
 
 interface ItemTabProps {
@@ -61,46 +61,48 @@ export const ItemTab: React.FC<ItemTabProps> = ({
 
   const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      await api.post(`/stories/${storyID}/items`, {
-        name,
-        type,
-        grade,
-        function: funcDesc,
-        usage_condition: usageCondition,
-        origin_location_id: originLocationID || null,
-        owner_character_id: ownerCharacterID || null,
-        owner_faction_id: ownerFactionID || null,
-      });
-
-      // Reset
-      setName('');
-      setType('Vũ khí');
-      setGrade('');
-      setFuncDesc('');
-      setUsageCondition('');
-      setOriginLocationID(null);
-      setOwnerCharacterID(null);
-      setOwnerFactionID(null);
-      setIsModalOpen(false);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi tạo vật phẩm');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await handleFormSubmit({
+      setSubmitting: setIsSubmitting,
+      action: () =>
+        api.post(ENDPOINTS.ITEMS.BASE(storyID), {
+          name,
+          type,
+          grade,
+          function: funcDesc,
+          usage_condition: usageCondition,
+          origin_location_id: originLocationID || null,
+          owner_character_id: ownerCharacterID || null,
+          owner_faction_id: ownerFactionID || null,
+        }),
+      onSuccess: () => {
+        // Reset
+        setName('');
+        setType('Vũ khí');
+        setGrade('');
+        setFuncDesc('');
+        setUsageCondition('');
+        setOriginLocationID(null);
+        setOwnerCharacterID(null);
+        setOwnerFactionID(null);
+        setIsModalOpen(false);
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi tạo vật phẩm',
+      successMessage: `Đã tạo vật phẩm "${name}" thành công!`,
+    });
   };
 
   const handleDelete = async (id: number, itemName: string) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa vật phẩm "${itemName}"?`)) return;
-    try {
-      await api.delete(`/stories/${storyID}/items/${id}`);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi xóa vật phẩm');
-    }
+    await confirmAndDelete({
+      title: 'Xóa Vật Phẩm',
+      confirmMessage: `Bạn có chắc muốn xóa vật phẩm "${itemName}"?`,
+      action: () => api.delete(ENDPOINTS.ITEMS.DETAIL(storyID, id)),
+      onSuccess: () => {
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi xóa vật phẩm',
+      successMessage: `Đã xóa vật phẩm "${itemName}" thành công!`,
+    });
   };
 
   // Filter items

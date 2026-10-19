@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Character, Faction, Location, SystemCategory } from '../../types';
-import { api } from '../../services/api';
+import { api, ENDPOINTS, handleFormSubmit, confirmAndDelete } from '../../services';
 import { Users, Plus, Trash2, X, Sparkles, MapPin, Shield } from 'lucide-react';
 
 interface CharacterTabProps {
@@ -42,56 +42,58 @@ export const CharacterTab: React.FC<CharacterTabProps> = ({
 
   const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const response = await api.post(`/stories/${storyID}/characters`, {
-        name,
-        alias,
-        role,
-        gender,
-        age,
-        faction_id: factionID || null,
-        faction_rank: factionRank,
-        birthplace_id: birthplaceID || null,
-        current_level: currentLevel,
-        abilities,
-        origin_story: originStory,
-        character_arc: characterArc,
-      });
-
-      // Nếu backend phát hiện từ mới (Smart Recheck)
-      if (response.data.detected_new_items && response.data.detected_new_items.length > 0) {
-        if (onDetectedNewItems) {
-          onDetectedNewItems(response.data.detected_new_items);
+    await handleFormSubmit({
+      setSubmitting: setIsSubmitting,
+      action: () =>
+        api.post(ENDPOINTS.CHARACTERS.BASE(storyID), {
+          name,
+          alias,
+          role,
+          gender,
+          age,
+          faction_id: factionID || null,
+          faction_rank: factionRank,
+          birthplace_id: birthplaceID || null,
+          current_level: currentLevel,
+          abilities,
+          origin_story: originStory,
+          character_arc: characterArc,
+        }),
+      onSuccess: (response) => {
+        // Nếu backend phát hiện từ mới (Smart Recheck)
+        if (response.data.detected_new_items && response.data.detected_new_items.length > 0) {
+          if (onDetectedNewItems) {
+            onDetectedNewItems(response.data.detected_new_items);
+          }
         }
-      }
 
-      // Reset form
-      setName('');
-      setAlias('');
-      setAbilities('');
-      setOriginStory('');
-      setCharacterArc('');
-      setFactionID(null);
-      setBirthplaceID(null);
-      setIsModalOpen(false);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi tạo nhân vật');
-    } finally {
-      setIsSubmitting(false);
-    }
+        // Reset form
+        setName('');
+        setAlias('');
+        setAbilities('');
+        setOriginStory('');
+        setCharacterArc('');
+        setFactionID(null);
+        setBirthplaceID(null);
+        setIsModalOpen(false);
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi tạo nhân vật',
+      successMessage: `Đã khởi tạo nhân vật "${name}" thành công!`,
+    });
   };
 
   const handleDelete = async (id: number, charName: string) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa nhân vật "${charName}"?`)) return;
-    try {
-      await api.delete(`/stories/${storyID}/characters/${id}`);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi xóa nhân vật');
-    }
+    await confirmAndDelete({
+      title: 'Xóa Nhân Vật',
+      confirmMessage: `Bạn có chắc muốn xóa nhân vật "${charName}"? Hành động này không thể hoàn tác.`,
+      action: () => api.delete(ENDPOINTS.CHARACTERS.DETAIL(storyID, id)),
+      onSuccess: () => {
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi xóa nhân vật',
+      successMessage: `Đã xóa nhân vật "${charName}" thành công!`,
+    });
   };
 
   return (

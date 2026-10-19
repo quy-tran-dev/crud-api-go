@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, ENDPOINTS, handleFormSubmit } from '../services';
 import { useAuthStore } from '../store/useAuthStore';
 import { BookOpen, KeyRound, Mail, User as UserIcon, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -18,27 +18,26 @@ export const RegisterPage: React.FC = () => {
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError(null);
-    setIsLoading(true);
 
-    try {
-      const response = await api.post('/auth/register', {
-        username,
-        email,
-        password,
-        role,
-      });
-      const { user, token } = response.data.data;
-      setAuth(user, token);
-      navigate('/');
-    } catch (err: any) {
-      const message =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        'Đăng ký thất bại. Vui lòng thử lại với email hoặc tên đăng nhập khác.';
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
+    await handleFormSubmit({
+      setSubmitting: setIsLoading,
+      action: () =>
+        api.post(ENDPOINTS.AUTH.REGISTER, {
+          username,
+          email,
+          password,
+          role,
+        }),
+      onSuccess: (response) => {
+        const { user, token } = response.data.data;
+        setAuth(user, token);
+        navigate('/');
+      },
+      onError: (msg) => {
+        setError(msg);
+      },
+      fallbackErrorMessage: 'Đăng ký thất bại. Vui lòng thử lại với email hoặc tên đăng nhập khác.',
+    });
   };
 
   return (

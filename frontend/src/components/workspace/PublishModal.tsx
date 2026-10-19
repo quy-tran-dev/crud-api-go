@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api } from '../../services/api';
+import { api, ENDPOINTS } from '../../services';
 import type { WorkspaceTab } from './WorkspaceSidebar';
 import {
   ShieldCheck,
@@ -49,7 +49,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
     setMessage('');
 
     try {
-      const response = await api.post(`/stories/${storyID}/publish`);
+      const response = await api.post(ENDPOINTS.STORIES.PUBLISH(storyID));
       setResultState('success');
       setMessage(response.data?.message || 'Xác thực kịch bản và xuất bản chính thức thành công!');
       if (response.data?.data) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, ENDPOINTS, getErrorMessage } from '../services';
 import type {
   Story,
   SystemCategory,
@@ -71,13 +71,13 @@ export const WorkspacePage: React.FC = () => {
         plotsRes,
         itemsRes,
       ] = await Promise.all([
-        api.get(`/stories/${storyID}`),
-        api.get(`/stories/${storyID}/categories`),
-        api.get(`/stories/${storyID}/locations`),
-        api.get(`/stories/${storyID}/factions`),
-        api.get(`/stories/${storyID}/characters`),
-        api.get(`/stories/${storyID}/plots`),
-        api.get(`/stories/${storyID}/items`),
+        api.get(ENDPOINTS.STORIES.DETAIL(storyID)),
+        api.get(ENDPOINTS.CATEGORIES.BASE(storyID)),
+        api.get(ENDPOINTS.LOCATIONS.BASE(storyID)),
+        api.get(ENDPOINTS.FACTIONS.BASE(storyID)),
+        api.get(ENDPOINTS.CHARACTERS.BASE(storyID)),
+        api.get(ENDPOINTS.PLOTS.BASE(storyID)),
+        api.get(ENDPOINTS.ITEMS.BASE(storyID)),
       ]);
 
       setStory(storyRes.data?.data || null);
@@ -89,8 +89,10 @@ export const WorkspacePage: React.FC = () => {
       setItems(itemsRes.data?.data || []);
     } catch (err: any) {
       setError(
-        err.response?.data?.message ||
+        getErrorMessage(
+          err,
           'Không thể tải dữ liệu kịch bản. Vui lòng thử lại.'
+        )
       );
     } finally {
       setLoading(false);

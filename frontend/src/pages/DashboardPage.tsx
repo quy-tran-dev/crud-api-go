@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
-import type { Story } from '../types';
+import {
+  api,
+  ENDPOINTS,
+  handleFormSubmit,
+  confirmAndDelete,
+} from '../services';
+import type { Story, FrameworkTemplate } from '../types';
 import { Navbar } from '../components/Navbar';
 import {
   BookOpen,
@@ -15,6 +20,9 @@ import {
   X,
   Loader2,
   CheckCircle2,
+  Bookmark,
+  Globe,
+  Eye,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -32,6 +40,15 @@ export const DashboardPage: React.FC = () => {
   const [synopsis, setSynopsis] = useState('');
   const [worldSetting, setWorldSetting] = useState('');
 
+  // Template Ecosystem States
+  const [templateSource, setTemplateSource] = useState<'default' | 'my' | 'public'>('default');
+  const [myTemplates, setMyTemplates] = useState<FrameworkTemplate[]>([]);
+  const [publicTemplates, setPublicTemplates] = useState<FrameworkTemplate[]>([]);
+  const [selectedFrameworkID, setSelectedFrameworkID] = useState<number | null>(null);
+  const [selectedFrameworkName, setSelectedFrameworkName] = useState<string>('');
+  const [previewFramework, setPreviewFramework] = useState<FrameworkTemplate | null>(null);
+  const [publicSearch, setPublicSearch] = useState('');
+
   const navigate = useNavigate();
 
   const fetchStories = async () => {
@@ -41,7 +58,7 @@ export const DashboardPage: React.FC = () => {
       if (statusFilter !== 'all') params.status = statusFilter;
       if (search) params.search = search;
 
-      const response = await api.get('/stories', { params });
+      const response = await api.get(ENDPOINTS.STORIES.BASE, { params });
       setStories(response.data.data || []);
     } catch (err: any) {
       console.error('Lỗi tải danh sách tác phẩm:', err);
@@ -50,9 +67,28 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const fetchTemplates = async () => {
+    try {
+      const [myRes, pubRes] = await Promise.all([
+        api.get(ENDPOINTS.FRAMEWORKS.MY),
+        api.get(ENDPOINTS.FRAMEWORKS.PUBLIC, { params: { search: publicSearch } }),
+      ]);
+      setMyTemplates(myRes.data?.data || []);
+      setPublicTemplates(pubRes.data?.data || []);
+    } catch (err) {
+      console.error('Lỗi tải bộ khung mẫu:', err);
+    }
+  };
+
   useEffect(() => {
     fetchStories();
   }, [statusFilter]);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      fetchTemplates();
+    }
+  }, [isModalOpen, publicSearch]);
 
   const handleSearchSubmit = (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -62,40 +98,57 @@ export const DashboardPage: React.FC = () => {
   const handleCreateStory = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError(null);
-    setIsSubmitting(true);
 
-    try {
-      await api.post('/stories', {
-        title,
-        genre,
-        synopsis,
-        world_setting: worldSetting,
-      });
-      setIsModalOpen(false);
-      // Reset form
-      setTitle('');
-      setGenre('Tu Tiên');
-      setSynopsis('');
-      setWorldSetting('');
-      fetchStories();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Không thể tạo tác phẩm. Vui lòng thử lại.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await handleFormSubmit({
+      setSubmitting: setIsSubmitting,
+      action: async () => {
+        const res = await api.post(ENDPOINTS.STORIES.BASE, {
+          title,
+          genre,
+          synopsis,
+          world_setting: worldSetting,
+        });
+
+        const newStory = res.data?.data;
+        // Nếu tác giả chọn một bộ khung tùy chỉnh từ My/Public, áp dụng ngay vào tác phẩm mới
+        if (newStory?.id && selectedFrameworkID) {
+          await api.post(
+            ENDPOINTS.STORIES.APPLY_FRAMEWORK(newStory.id, selectedFrameworkID)
+          );
+        }
+        return res;
+      },
+      onSuccess: () => {
+        setIsModalOpen(false);
+        // Reset form
+        setTitle('');
+        setGenre('Tu Tiên');
+        setSynopsis('');
+        setWorldSetting('');
+        setSelectedFrameworkID(null);
+        setSelectedFrameworkName('');
+        setTemplateSource('default');
+        fetchStories();
+      },
+      onError: (msg) => {
+        setError(msg);
+      },
+      fallbackErrorMessage: 'Không thể tạo tác phẩm. Vui lòng thử lại.',
+      successMessage: 'Đã khởi tạo tác phẩm mới thành công!',
+    });
   };
 
   const handleDeleteStory = async (id: number, title: string) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa tác phẩm "${title}"? Thao tác này sẽ xóa toàn bộ nhân vật, địa danh, tình tiết và vật phẩm bên trong!`)) {
-      return;
-    }
-
-    try {
-      await api.delete(`/stories/${id}`);
-      setStories(stories.filter((s) => s.id !== id));
-    } catch (err: any) {
-      alert('Lỗi khi xóa tác phẩm: ' + (err.response?.data?.message || err.message));
-    }
+    await confirmAndDelete({
+      title: 'Xóa Tác Phẩm Kịch Bản',
+      confirmMessage: `Bạn có chắc chắn muốn xóa tác phẩm "${title}"? Thao tác này sẽ xóa vĩnh viễn toàn bộ nhân vật, địa danh, tình tiết và vật phẩm bên trong kịch bản!`,
+      action: () => api.delete(ENDPOINTS.STORIES.DETAIL(id)),
+      onSuccess: () => {
+        setStories(stories.filter((s) => s.id !== id));
+      },
+      fallbackErrorMessage: 'Lỗi khi xóa tác phẩm',
+      successMessage: `Đã xóa tác phẩm "${title}" thành công!`,
+    });
   };
 
   const popularGenres = [
@@ -313,34 +366,229 @@ export const DashboardPage: React.FC = () => {
                 />
               </div>
 
+              {/* Chọn Nguồn Bộ Khung Thế Giới (Template Ecosystem) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Thể Loại Truyện (Chọn để kích hoạt Auto-Seed)
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-2">
+                  Bộ Khung Thiết Lập Thế Giới & Cảnh Giới
                 </label>
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  {popularGenres.map((g) => (
+
+                {/* Tab Switcher */}
+                <div className="flex p-1 bg-slate-950 border border-slate-800 rounded-xl mb-3 space-x-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTemplateSource('default');
+                      setSelectedFrameworkID(null);
+                      setSelectedFrameworkName('');
+                    }}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center space-x-1.5 ${
+                      templateSource === 'default'
+                        ? 'bg-brand-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Mẫu Mặc Định</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTemplateSource('my')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center space-x-1.5 ${
+                      templateSource === 'my'
+                        ? 'bg-brand-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Bookmark className="w-3.5 h-3.5" />
+                    <span>Của Tôi ({myTemplates.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTemplateSource('public')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center space-x-1.5 ${
+                      templateSource === 'public'
+                        ? 'bg-brand-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Cộng Đồng ({publicTemplates.length})</span>
+                  </button>
+                </div>
+
+                {/* 1. Mẫu Mặc Định */}
+                {templateSource === 'default' && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {popularGenres.map((g) => (
+                        <button
+                          type="button"
+                          key={g.name}
+                          onClick={() => {
+                            setGenre(g.name);
+                            setSelectedFrameworkID(null);
+                            setSelectedFrameworkName('');
+                          }}
+                          className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                            genre === g.name && !selectedFrameworkID
+                              ? 'border-brand-500 bg-brand-950/60 text-white ring-1 ring-brand-500'
+                              : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="font-semibold text-slate-200">{g.name}</div>
+                          <div className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">{g.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={genre}
+                      onChange={(e) => {
+                        setGenre(e.target.value);
+                        setSelectedFrameworkID(null);
+                        setSelectedFrameworkName('');
+                      }}
+                      placeholder="Hoặc tự gõ thể loại khác..."
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                  </div>
+                )}
+
+                {/* 2. Bộ Khung Của Tôi */}
+                {templateSource === 'my' && (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {myTemplates.length === 0 ? (
+                      <div className="text-center py-6 px-4 bg-slate-950/60 rounded-xl border border-dashed border-slate-800 text-slate-500 text-xs">
+                        <Bookmark className="w-6 h-6 mx-auto mb-1.5 text-slate-600" />
+                        <p>Bạn chưa lưu bộ khung mẫu nào.</p>
+                        <p className="text-[11px] text-slate-600 mt-1">
+                          Hãy viết kịch bản và nhấn "Lưu Thành Bộ Khung Mẫu" trong tab Từ Điển để tái sử dụng sau này.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2">
+                        {myTemplates.map((tmpl) => (
+                          <div
+                            key={tmpl.id}
+                            onClick={() => {
+                              setSelectedFrameworkID(tmpl.id);
+                              setSelectedFrameworkName(tmpl.name);
+                              setGenre(tmpl.genre);
+                            }}
+                            className={`p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+                              selectedFrameworkID === tmpl.id
+                                ? 'border-brand-500 bg-brand-950/50 text-white ring-1 ring-brand-500'
+                                : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="truncate mr-2">
+                              <div className="font-semibold text-slate-200 truncate">{tmpl.name}</div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                Thể loại: <span className="text-brand-400">{tmpl.genre}</span> • {tmpl.data?.length || 0} danh mục
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewFramework(tmpl);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                              title="Xem trước nội dung bộ khung"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. Thư Viện Cộng Đồng (Public) */}
+                {templateSource === 'public' && (
+                  <div className="space-y-2">
+                    <div className="relative mb-2">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="text"
+                        value={publicSearch}
+                        onChange={(e) => setPublicSearch(e.target.value)}
+                        placeholder="Tìm bộ khung cộng đồng theo tên, thể loại..."
+                        className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      />
+                    </div>
+
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {publicTemplates.length === 0 ? (
+                        <div className="text-center py-6 px-4 bg-slate-950/60 rounded-xl border border-dashed border-slate-800 text-slate-500 text-xs">
+                          <Globe className="w-6 h-6 mx-auto mb-1.5 text-slate-600" />
+                          <p>Chưa có bộ khung công khai nào phù hợp.</p>
+                        </div>
+                      ) : (
+                        publicTemplates.map((tmpl) => (
+                          <div
+                            key={tmpl.id}
+                            onClick={() => {
+                              setSelectedFrameworkID(tmpl.id);
+                              setSelectedFrameworkName(tmpl.name);
+                              setGenre(tmpl.genre);
+                            }}
+                            className={`p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+                              selectedFrameworkID === tmpl.id
+                                ? 'border-brand-500 bg-brand-950/50 text-white ring-1 ring-brand-500'
+                                : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="truncate mr-2">
+                              <div className="font-semibold text-slate-200 truncate">{tmpl.name}</div>
+                              <div className="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-2">
+                                <span>Thể loại: <strong className="text-brand-400 font-medium">{tmpl.genre}</strong></span>
+                                <span>• Tác giả: {tmpl.author?.username || 'Cộng đồng'}</span>
+                                <span>• {tmpl.usage_count} lượt dùng</span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewFramework(tmpl);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                              title="Xem trước nội dung bộ khung"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Badge thông báo bộ khung đã chọn */}
+                {selectedFrameworkName && (
+                  <div className="mt-2.5 p-2 rounded-lg bg-brand-950/50 border border-brand-500/30 flex items-center justify-between text-xs text-brand-300">
+                    <div className="flex items-center space-x-1.5 truncate">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-400 flex-shrink-0" />
+                      <span className="truncate">Sẽ nhân bản bộ khung: <strong>{selectedFrameworkName}</strong></span>
+                    </div>
                     <button
                       type="button"
-                      key={g.name}
-                      onClick={() => setGenre(g.name)}
-                      className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                        genre === g.name
-                          ? 'border-brand-500 bg-brand-950/60 text-white ring-1 ring-brand-500'
-                          : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
-                      }`}
+                      onClick={() => {
+                        setSelectedFrameworkID(null);
+                        setSelectedFrameworkName('');
+                      }}
+                      className="text-slate-400 hover:text-white ml-2 text-[11px]"
                     >
-                      <div className="font-semibold text-slate-200">{g.name}</div>
-                      <div className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">{g.desc}</div>
+                      Bỏ chọn
                     </button>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  value={genre}
-                  onChange={(e) => setGenre(e.target.value)}
-                  placeholder="Hoặc tự gõ thể loại khác..."
-                  className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -393,6 +641,91 @@ export const DashboardPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal Xem Trước Bộ Khung Mẫu (Preview Framework) */}
+      {previewFramework && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+            <button
+              onClick={() => setPreviewFramework(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-start justify-between pb-4 border-b border-slate-800 pr-8">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center space-x-2">
+                  <span>{previewFramework.name}</span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30">
+                    {previewFramework.genre}
+                  </span>
+                </h3>
+                {previewFramework.description && (
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    {previewFramework.description}
+                  </p>
+                )}
+                <div className="text-[11px] text-slate-500 mt-1.5 flex items-center space-x-3">
+                  <span>Tác giả: <strong className="text-slate-300">{previewFramework.author?.username || 'Bạn'}</strong></span>
+                  <span>• {previewFramework.usage_count} lượt sử dụng</span>
+                </div>
+              </div>
+            </div>
+
+            {/* List of categories and items inside this framework */}
+            <div className="flex-1 overflow-y-auto my-4 space-y-4 pr-1">
+              {previewFramework.data?.map((cat, idx) => (
+                <div key={idx} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-xs text-slate-200">{cat.name}</span>
+                    <span className="font-mono text-[11px] text-brand-400">{cat.code}</span>
+                  </div>
+                  {cat.description && (
+                    <p className="text-[11px] text-slate-500 mb-2">{cat.description}</p>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {cat.items?.map((it, itIdx) => (
+                      <span
+                        key={itIdx}
+                        className="px-2 py-0.5 rounded-md text-[11px] bg-slate-900 border border-slate-700/80 text-slate-300"
+                      >
+                        #{it.order_index} {it.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                Toàn bộ danh mục và cấp bậc trên sẽ được tự động nhân bản khi tạo truyện
+              </span>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewFramework(null)}
+                  className="px-3.5 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFrameworkID(previewFramework.id);
+                    setSelectedFrameworkName(previewFramework.name);
+                    setGenre(previewFramework.genre);
+                    setPreviewFramework(null);
+                  }}
+                  className="btn-primary text-xs"
+                >
+                  Chọn Sử Dụng Khung Này
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

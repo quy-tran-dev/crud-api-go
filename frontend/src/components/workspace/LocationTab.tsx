@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Location } from '../../types';
-import { api } from '../../services/api';
+import { api, ENDPOINTS, handleFormSubmit, confirmAndDelete } from '../../services';
 import { MapPin, Plus, Trash2, X, CornerDownRight } from 'lucide-react';
 
 interface LocationTabProps {
@@ -24,36 +24,39 @@ export const LocationTab: React.FC<LocationTabProps> = ({
 
   const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      await api.post(`/stories/${storyID}/locations`, {
-        name,
-        type,
-        parent_id: parentID || null,
-        danger_level: dangerLevel,
-        description,
-      });
-      setName('');
-      setDescription('');
-      setParentID(null);
-      setIsModalOpen(false);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi tạo địa danh');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await handleFormSubmit({
+      setSubmitting: setIsSubmitting,
+      action: () =>
+        api.post(ENDPOINTS.LOCATIONS.BASE(storyID), {
+          name,
+          type,
+          parent_id: parentID || null,
+          danger_level: dangerLevel,
+          description,
+        }),
+      onSuccess: () => {
+        setName('');
+        setDescription('');
+        setParentID(null);
+        setIsModalOpen(false);
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi tạo địa danh',
+      successMessage: `Đã tạo địa danh "${name}" thành công!`,
+    });
   };
 
   const handleDelete = async (id: number, locName: string) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa địa danh "${locName}"?`)) return;
-    try {
-      await api.delete(`/stories/${storyID}/locations/${id}`);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi xóa địa danh');
-    }
+    await confirmAndDelete({
+      title: 'Xóa Địa Danh',
+      confirmMessage: `Bạn có chắc muốn xóa địa danh "${locName}"? Các địa danh con trực thuộc cũng có thể bị ảnh hưởng.`,
+      action: () => api.delete(ENDPOINTS.LOCATIONS.DETAIL(storyID, id)),
+      onSuccess: () => {
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi xóa địa danh',
+      successMessage: `Đã xóa địa danh "${locName}" thành công!`,
+    });
   };
 
   return (

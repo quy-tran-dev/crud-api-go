@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Plot, Location, Character, Faction, Item } from '../../types';
-import { api } from '../../services/api';
+import { api, ENDPOINTS, handleFormSubmit, confirmAndDelete } from '../../services';
 import { Film, Plus, Trash2, X, Clock, MapPin, Users, Shield, Sparkles } from 'lucide-react';
 
 interface PlotTabProps {
@@ -39,48 +39,50 @@ export const PlotTab: React.FC<PlotTabProps> = ({
 
   const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      await api.post(`/stories/${storyID}/plots`, {
-        title,
-        type,
-        order_index: Number(orderIndex),
-        location_id: locationID || null,
-        summary,
-        consequences,
-        participating_character_ids: selectedCharacters,
-        involved_faction_ids: selectedFactions,
-        featured_item_ids: selectedItems,
-      });
-
-      // Reset form
-      setTitle('');
-      setType('main_plot');
-      setOrderIndex(plots.length + 2);
-      setLocationID(null);
-      setSummary('');
-      setConsequences('');
-      setSelectedCharacters([]);
-      setSelectedFactions([]);
-      setSelectedItems([]);
-      setIsModalOpen(false);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi tạo tình tiết');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await handleFormSubmit({
+      setSubmitting: setIsSubmitting,
+      action: () =>
+        api.post(ENDPOINTS.PLOTS.BASE(storyID), {
+          title,
+          type,
+          order_index: Number(orderIndex),
+          location_id: locationID || null,
+          summary,
+          consequences,
+          participating_character_ids: selectedCharacters,
+          involved_faction_ids: selectedFactions,
+          featured_item_ids: selectedItems,
+        }),
+      onSuccess: () => {
+        // Reset form
+        setTitle('');
+        setType('main_plot');
+        setOrderIndex(plots.length + 2);
+        setLocationID(null);
+        setSummary('');
+        setConsequences('');
+        setSelectedCharacters([]);
+        setSelectedFactions([]);
+        setSelectedItems([]);
+        setIsModalOpen(false);
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi tạo tình tiết',
+      successMessage: `Đã tạo tình tiết "${title}" thành công!`,
+    });
   };
 
   const handleDelete = async (id: number, plotTitle: string) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa tình tiết "${plotTitle}"?`)) return;
-    try {
-      await api.delete(`/stories/${storyID}/plots/${id}`);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi xóa tình tiết');
-    }
+    await confirmAndDelete({
+      title: 'Xóa Tình Tiết',
+      confirmMessage: `Bạn có chắc muốn xóa tình tiết "${plotTitle}"?`,
+      action: () => api.delete(ENDPOINTS.PLOTS.DETAIL(storyID, id)),
+      onSuccess: () => {
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi xóa tình tiết',
+      successMessage: `Đã xóa tình tiết "${plotTitle}" thành công!`,
+    });
   };
 
   const getTypeBadge = (plotType: string) => {

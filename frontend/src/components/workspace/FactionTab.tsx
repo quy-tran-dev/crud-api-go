@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Faction, Location } from '../../types';
-import { api } from '../../services/api';
+import { api, ENDPOINTS, handleFormSubmit, confirmAndDelete } from '../../services';
 import { Shield, Plus, Trash2, X, MapPin } from 'lucide-react';
 
 interface FactionTabProps {
@@ -26,36 +26,39 @@ export const FactionTab: React.FC<FactionTabProps> = ({
 
   const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      await api.post(`/stories/${storyID}/factions`, {
-        name,
-        type,
-        power_tier: powerTier,
-        headquarter_id: headquarterID || null,
-        description,
-      });
-      setName('');
-      setDescription('');
-      setHeadquarterID(null);
-      setIsModalOpen(false);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi tạo thế lực');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await handleFormSubmit({
+      setSubmitting: setIsSubmitting,
+      action: () =>
+        api.post(ENDPOINTS.FACTIONS.BASE(storyID), {
+          name,
+          type,
+          power_tier: powerTier,
+          headquarter_id: headquarterID || null,
+          description,
+        }),
+      onSuccess: () => {
+        setName('');
+        setDescription('');
+        setHeadquarterID(null);
+        setIsModalOpen(false);
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi tạo thế lực',
+      successMessage: `Đã tạo thế lực "${name}" thành công!`,
+    });
   };
 
   const handleDelete = async (id: number, facName: string) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa thế lực "${facName}"?`)) return;
-    try {
-      await api.delete(`/stories/${storyID}/factions/${id}`);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Lỗi khi xóa thế lực');
-    }
+    await confirmAndDelete({
+      title: 'Xóa Thế Lực',
+      confirmMessage: `Bạn có chắc muốn xóa thế lực "${facName}"?`,
+      action: () => api.delete(ENDPOINTS.FACTIONS.DETAIL(storyID, id)),
+      onSuccess: () => {
+        onRefresh();
+      },
+      fallbackErrorMessage: 'Lỗi khi xóa thế lực',
+      successMessage: `Đã xóa thế lực "${facName}" thành công!`,
+    });
   };
 
   return (
